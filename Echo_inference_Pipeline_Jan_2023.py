@@ -88,6 +88,8 @@ class EchoInferenceEngine:
                 img_array = cv2.cvtColor(pixel_array, cv2.COLOR_YCrCb2RGB) ######Modified Jan 2022
             elif cs == "RGB":
                 img_array = cv2.cvtColor(pixel_array, cv2.COLOR_BGR2RGB)         ######Modified Jan 2022
+            elif cs == 'PALETTE COLOR':
+                img_array = cv2.cvtColor(pixel_array, cv2.COLOR_BGR2RGB)
             img_array = img_array.astype(np.uint8)
             x, y, w, h = echofunctions.ROI_frame(img_array)
             return x, y, w, h
@@ -108,7 +110,9 @@ class EchoInferenceEngine:
                 img_array = cv2.cvtColor(pixel_array[i], cv2.COLOR_YCrCb2RGB) ######Modified Jan 2022
             elif cs == "RGB":
                 img_array = cv2.cvtColor(pixel_array[i], cv2.COLOR_BGR2RGB)
-
+            elif cs == 'PALETTE COLOR':
+                img_array = cv2.cvtColor(pixel_array, cv2.COLOR_BGR2RGB)
+                
             cls_result_frame = echofunctions.cls_frame(img_array)
             cls_result_list.append(cls_result_frame)
         unique_view = list(np.unique(np.array(cls_result_list)))
