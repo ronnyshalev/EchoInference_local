@@ -1,25 +1,9 @@
 import json
 import pydicom
-import os
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "0" # 
-    # 0 = all messages are logged (default behavior)
-    # 1 = INFO messages are not printed
-    # 2 = INFO and WARNING messages are not printed
-    # 3 = INFO, WARNING, and ERROR messages are not printed
-
-'''
-I added the following environment variable because I had an error 
-Descriptors cannot not be created directly.
-If this call came from a _pb2.py file, your generated code is out of date and must be regenerated with protoc >= 3.19.0.
-If you cannot immediately regenerate your protos, some other possible workarounds are:
-    1. Downgrade the protobuf package to 3.20.x or lower.
-    2. Set PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python (but this will use pure-Python parsing and will be much slower).
-'''
-#os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION']='python' 
 import EchoCardiFunction as echofunctions
 import numpy as np
 import cv2
-
+import os
 import sys
 from matplotlib import pyplot as plt
 class EchoInferenceEngine:
@@ -56,6 +40,12 @@ class EchoInferenceEngine:
                           23:'Unknown'}
     #####################################################################################
     
+    def dicom_to_rgb(self, ds):
+        arr = ds.pixel_array
+        rgb = pydicom.pixel_data_handlers.util.apply_color_lut(arr, ds)
+        rgb = (rgb/256).astype('uint8')
+        return rgb
+    
     
     def ROI_video(self, pixel_array, cs):
         """
@@ -88,8 +78,6 @@ class EchoInferenceEngine:
                 img_array = cv2.cvtColor(pixel_array, cv2.COLOR_YCrCb2RGB) ######Modified Jan 2022
             elif cs == "RGB":
                 img_array = cv2.cvtColor(pixel_array, cv2.COLOR_BGR2RGB)         ######Modified Jan 2022
-            elif cs == 'PALETTE COLOR':
-                img_array = cv2.cvtColor(pixel_array, cv2.COLOR_BGR2RGB)
             img_array = img_array.astype(np.uint8)
             x, y, w, h = echofunctions.ROI_frame(img_array)
             return x, y, w, h
@@ -110,9 +98,7 @@ class EchoInferenceEngine:
                 img_array = cv2.cvtColor(pixel_array[i], cv2.COLOR_YCrCb2RGB) ######Modified Jan 2022
             elif cs == "RGB":
                 img_array = cv2.cvtColor(pixel_array[i], cv2.COLOR_BGR2RGB)
-            elif cs == 'PALETTE COLOR':
-                img_array = cv2.cvtColor(pixel_array, cv2.COLOR_BGR2RGB)
-                
+
             cls_result_frame = echofunctions.cls_frame(img_array)
             cls_result_list.append(cls_result_frame)
         unique_view = list(np.unique(np.array(cls_result_list)))
@@ -173,8 +159,8 @@ class EchoInferenceEngine:
         cv2.imwrite(os.path.join(image_path, str(image_ind) + '.png'), image)
         cv2.imwrite(os.path.join(mask_path, str(image_ind) + '.png'), mask_resize)
         # cv2.imwrite(os.path.join(mask_overlay_path, str(image_ind) + '.png'), mask_overlay)
-        ###################################################################plt.imshow(image)
-        ##################################################################plt.imshow(mask_resize, alpha = 0.6)
+        plt.imshow(image)
+        plt.imshow(mask_resize, alpha = 0.6)
         plt.axis('off')
         plt.savefig(os.path.join(mask_overlay_path, str(image_ind) + '.png'))
         
@@ -1213,13 +1199,41 @@ class EchoInferenceEngine:
     
             
 def main():   
-    verbosity = False
     
-    study_folder = "./Test_data/Anonymized - 01_01_2018_14_11_52_d"      #Paste the study directory here
-    #study_folder = "./Test_data/20220113084357016414246828271"      #Paste the study directory here
-    #study_folder = "./Test_data/202201130828320762231393317"      #Paste the study directory here
+    TEST_DATA_ROOT = './Test_data/Pediatric'
+    #TEST_DATA_ROOT = './Test_data'
+    #study_folder = "D:\Work\EchoCardium\EchoTriage_Demo\Echo_Inference_Pipeline_Local\Test_data\Anonymized - 01_01_2018_14_11_52_d"      #Paste the study directory here
+    
+    adult_scans = {1: 'Anonymized - 01_01_2018_14_11_52_d',
+                   2: '202201130828320762231393317',
+                   3: '20220113084357016414246828271'}
+    desired_adult_idx = 1
+    
+    ped_scans = {1: '3150530I',
+                 2: '3403750W',     #contains A4C. Has results.
+                 3: '3405221A',
+                 4: '3408350G',
+                 5: '3408351E',
+                 6: '34015100',
+                 7: '34015104',
+                 8: '34037500',
+                 9: '34057200',
+                 10: '34064322',
+                 11: '34080500',
+                 12: '34083508',
+                 13: 'CHENXX0G',
+                 14: 'DAUGHT',
+                 15: 'LOXXXX1E',
+                 16: 'SON_OF00',    #contains A4C yet no resulst ?!
+                 17: 'WUXXXX12',
+                 18: 'YANGXX00'}
+    
+    desired_ped_idx = 4
+
 
     
+    study_folder = os.path.join(TEST_DATA_ROOT, ped_scans[desired_ped_idx])
+     
     engine = EchoInferenceEngine()
     work_path = os.getcwd()
     result_path = os.path.join(work_path, 'Results')
@@ -1235,18 +1249,8 @@ def main():
     dcm_list = engine.list_dicom(study_folder)
     bsa = engine.get_bsa(dcm_list)
     study_id = engine.get_study_id(dcm_list)
-
-    # *************************************************************************
-    # *********** Rony added the next 3 lines to ignore Pydicom warnings ******
-    # *************************************************************************
-     
-    import warnings
-    warnings.filterwarnings('ignore')
-    print('The script still runs.')
-
     series_dict = engine.get_series_list(dcm_list)
-    if verbosity:
-        print(study_id, series_dict)
+    print(study_id, series_dict)
     
     study_result_folder = engine.make_study_folder(result_path, os.path.basename(study_folder))      
 
@@ -1315,8 +1319,13 @@ def main():
             else:
                 frame_rate = int(round(1000 / frame_time))
             try:
-                ori_pixel_array = dataset.pixel_array
                 colorspace = dataset.PhotometricInterpretation
+                if colorspace == "PALETTE COLOR":
+                    ori_pixel_array = engine.dicom_to_rgb(dataset)
+                    colorspace = 'RGB'
+                else:
+                    ori_pixel_array = dataset.pixel_array
+                
             except:
                 print("Unable to load the pixel array")
                 continue
