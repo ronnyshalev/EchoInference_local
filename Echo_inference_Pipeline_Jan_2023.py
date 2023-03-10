@@ -1462,13 +1462,18 @@ def main():
     if flags.PRINT_ALL_RESULTS_TO_CONSOLE:
         print(study_result_dict)
     if flags.PRINT_STUDY_EF_TO_CONSOLE:
-        #print (f'Study Ejection Fraction of all instances: {study_result_dict["studyResult"]["EF List"]}')
-        print (f'\n\nLV volume (mean) @ Diastole = {study_result_dict["studyResult"]["ED_Vol Mean"]} mm sq')
-        print (f'LV volume (mean) @ Systole = {study_result_dict["studyResult"]["ES_Vol Mean"]} mm sq')
+        print (f'\nPrediction-based results:')
+        print (f'\tStudy Ejection Fraction of each cycle: {study_result_dict["studyResult"]["EF List"]}')
+        #print (f'\tLV EF min = {study_result_dict["studyResult"]["EF_vol MIN"]}%')
+        #print (f'\tLV EF max = {study_result_dict["studyResult"]["EF_vol MAX"]}%')
+        print (f'\tLV EF Mean (prediction-based) = {study_result_dict["studyResult"]["EF_vol Mean"]}%')
+        
+        print(f'\nVolume-based EF calculations')
+        print (f'\tLV volume (mean) @ Diastole = {study_result_dict["studyResult"]["ED_Vol Mean"]} mm sq')
+        print (f'\tLV volume (mean) @ Systole = {study_result_dict["studyResult"]["ES_Vol Mean"]} mm sq')
         sv = float(study_result_dict["studyResult"]["ED_Vol Mean"]) - float(study_result_dict["studyResult"]["ES_Vol Mean"])
         EF = 100* sv / float(study_result_dict["studyResult"]["ED_Vol Mean"])
-        print (f'Ejection Fraction of study = {EF:.2f}%')
-
+        print (f'\t**Ejection Fraction of study = {EF:.2f}%')
 
     ######################################################
 if __name__ == "__main__":
