@@ -1,3 +1,8 @@
+'''
+Use echo_inference_venv
+
+'''
+
 import json
 import pydicom
 import EchoCardiFunction as echofunctions
@@ -5,7 +10,12 @@ import numpy as np
 import cv2
 import os
 import sys
+import time
 from matplotlib import pyplot as plt
+from config import Flags
+
+flags = Flags('flags.json')
+
 class EchoInferenceEngine:
     
     def __init__(self):
@@ -103,18 +113,18 @@ class EchoInferenceEngine:
             cls_result_list.append(cls_result_frame)
         unique_view = list(np.unique(np.array(cls_result_list)))
         if len(unique_view) == 1:
-            print("Image view:" + str(unique_view[0]))
+            if flags.PRINT_ALL_RESULTS_TO_CONSOLE:  print("Image view:" + str(unique_view[0]))
             return int(unique_view[0])
         else:
             view_frame_count = 0
             for view in unique_view:
                 view_dict[view] = cls_result_list.count(view)
-            print(view_dict)
+            if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print(view_dict)
             for key in view_dict.keys():
                 if view_dict[key] >= view_frame_count:
                     view_frame_count = view_dict[key]
                     cls_result = key
-            print("Image view:" + str(cls_result))
+            if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print("Image view:" + str(cls_result))
             return int(cls_result)
     
     def classify_image(self, pixel_array, cs):   ###Modified Oct 2021
@@ -175,7 +185,7 @@ class EchoInferenceEngine:
         alpha = self.IMG_WIDTH_SEG / pixel_array.shape[1]
         beta = self.IMG_WIDTH_SEG / pixel_array.shape[2]
         voxel_ratio = 1 / (alpha * beta * np.sqrt(np.power(alpha, 2) + np.power(beta, 2)))
-        print("Voxel Ratio is" + str(voxel_ratio))             ##########real spacing and the image spacing after resize are different, need to get the ratio
+        if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print("Voxel Ratio is" + str(voxel_ratio))             ##########real spacing and the image spacing after resize are different, need to get the ratio
         
         ES_list = []
         ED_list = []
@@ -230,7 +240,7 @@ class EchoInferenceEngine:
         regional_beat_min_list = []
         
         
-        print("FPS of this instance is: " + str(fps))
+        if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print("FPS of this instance is: " + str(fps))
         for j in range(instance_shape[0]):
             FR_result = {}
             
@@ -251,7 +261,8 @@ class EchoInferenceEngine:
                 seg_mask, seg_mask_bin, seg_mask_proba = echofunctions.get_mask_A2C(np.expand_dims(frame_array, 0))
             
             #######Save Segmentation Results#############
-            self.save_segmentation_results(frame_array_ori, seg_mask_bin[0], result_path, j)
+            if flags.SAVE_INTERMEDIATE_IMAGES:
+                self.save_segmentation_results(frame_array_ori, seg_mask_bin[0], result_path, j)
             #############################################
             
             try:
@@ -448,20 +459,20 @@ class EchoInferenceEngine:
                         HBR = int(fps / (ES_list[-1][0] - ES_list[-2][0]) * 60)
                     else:
                         HBR = 0
-                    print("HR:" + str(HBR))
+                    if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print("HR:" + str(HBR))
                     if HBR not in HR_list:
                         HR_list.append(HBR)
                         HR_list_all_instances.append(HBR)
                         # print("HBR: " + str(HBR))
                         if HBR> 100:
                             Arrhythmia_list.append("HR is too fast.")
-                            print("Diagnosis: " + "HR is too fast.")
+                            if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print("Diagnosis: " + "HR is too fast.")
                         elif HBR < 60:
                             Arrhythmia_list.append("HR is too low.")
-                            print("Diagnosis: " + "HR is too slow.")
+                            if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print("Diagnosis: " + "HR is too slow.")
                         elif HBR > 60 and HBR < 100:
                             Arrhythmia_list.append("HR is normal.")
-                            print("Diagnosis: " + "Normal.")
+                            if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print("Diagnosis: " + "Normal.")
                 
                     ##############################Strain Calculation################################################
             if len(ES_list) == 1:
@@ -472,7 +483,8 @@ class EchoInferenceEngine:
                 cur_ES = GLS_list[1][ES_list[ES_index - 1][0]]
                 if cur_ES != 0:
                     GLS_beat.append((cur_ES - GLS) / cur_ES)
-                    print("cur_ES:" + str(cur_ES))
+                    if flags.PRINT_ALL_RESULTS_TO_CONSOLE:
+                        print("cur_ES:" + str(cur_ES))
                     FR_result["GLS"] = GLS_beat[-1]
                 
                 cur_ES_AS = ASLS_list[1][ES_list[ES_index - 1][0]]  ###Modified Oct 2021
@@ -1228,7 +1240,7 @@ def main():
                  17: 'WUXXXX12',
                  18: 'YANGXX00'}
     
-    desired_ped_idx = 4
+    desired_ped_idx = 2
 
 
     
@@ -1241,7 +1253,8 @@ def main():
         os.makedirs(result_path)
     
     if os.path.exists(study_folder):
-        print("Study Path:{}".format(study_folder))
+        # print("Study Path:{}".format(study_folder))
+        print(f'Study folder found')
     else:
         print('Cannot find the study folder')
         return
@@ -1250,7 +1263,7 @@ def main():
     bsa = engine.get_bsa(dcm_list)
     study_id = engine.get_study_id(dcm_list)
     series_dict = engine.get_series_list(dcm_list)
-    print(study_id, series_dict)
+    if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print(study_id, series_dict)
     
     study_result_folder = engine.make_study_folder(result_path, os.path.basename(study_folder))      
 
@@ -1333,7 +1346,7 @@ def main():
             ###############get the ROI of the video
             ori_shape = ori_pixel_array.shape
             ROI = engine.ROI_video(ori_pixel_array, colorspace)
-            print("ROI of Instance {} is {}".format(dataset.InstanceNumber, ROI))
+            if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print("ROI of Instance {} is {}".format(dataset.InstanceNumber, ROI))
             
             ################view classification
             try:           ##########Dec 2021
@@ -1353,6 +1366,7 @@ def main():
             ROI_cls_dict['ROI'] = {'x': ROI[0], 'y': ROI[1], 'width': ROI[2], 'height': ROI[3]}     
             ROI_cls_dict['View Classification'] = engine.view_dict[instance_view]
             instance_result_path = engine.make_instance_folder(study_result_folder, os.path.basename(instance_path) + '-' + engine.view_dict[instance_view])
+
             with open(os.path.join(instance_result_path, 'ROI_and_View_result.json'), 'w') as f:
                 json.dump(ROI_cls_dict, f) 
             ###########################################################
@@ -1363,15 +1377,15 @@ def main():
                     try:
                         spacing_list = list(dataset.PixelSpacing)   ##get spacing
                         real_spacing = True
-                        print("Use real spacing")
+                        if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print("Use real spacing")
                     except:
                         spacing_list = [0.4, 0.4]
                         real_spacing = False
-                        print("Use fake spacing")
+                        if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print("Use fake spacing")
                     
                     spacing = (spacing_list[0] + spacing_list[1]) / 2 #mm
                     spacing_voxel = np.power((spacing / 10), 3)  #ml
-                    print("Spacing: " + str(spacing_voxel))
+                    if flags.PRINT_ALL_RESULTS_TO_CONSOLE: print("Spacing: " + str(spacing_voxel))
                                   
                     try:
                         result_dict = engine.run_inference_on_instance(ori_pixel_array, pixel_array, frame_rate, ROI, ori_shape, colorspace, bsa, spacing_voxel, real_spacing, instance_view, instance_result_path)
@@ -1442,9 +1456,23 @@ def main():
     ##########Write Study Result Json#####################
     study_result_dict = {}
     study_result_dict["studyResult"] = study_result
-    with open(os.path.join(study_result_folder, 'Study_Inference_Result.json'), 'w') as f:
-        json.dump(study_result_dict, f)
-    print(study_result_dict)
+    if flags.SAVE_EF:
+        with open(os.path.join(study_result_folder, 'Study_Inference_Result.json'), 'w') as f:
+            json.dump(study_result_dict, f)
+    if flags.PRINT_ALL_RESULTS_TO_CONSOLE:
+        print(study_result_dict)
+    if flags.PRINT_STUDY_EF_TO_CONSOLE:
+        #print (f'Study Ejection Fraction of all instances: {study_result_dict["studyResult"]["EF List"]}')
+        print (f'\n\nLV volume (mean) @ Diastole = {study_result_dict["studyResult"]["ED_Vol Mean"]} mm sq')
+        print (f'LV volume (mean) @ Systole = {study_result_dict["studyResult"]["ES_Vol Mean"]} mm sq')
+        sv = float(study_result_dict["studyResult"]["ED_Vol Mean"]) - float(study_result_dict["studyResult"]["ES_Vol Mean"])
+        EF = 100* sv / float(study_result_dict["studyResult"]["ED_Vol Mean"])
+        print (f'Ejection Fraction of study = {EF:.2f}%')
+
+
     ######################################################
 if __name__ == "__main__":
+    
+    start_time = time.time()
     main()
+    print('\nRunning time: {0:.1f} seconds'.format(time.time() - start_time))

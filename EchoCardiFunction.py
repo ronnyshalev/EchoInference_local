@@ -7,6 +7,7 @@ import math
 from scipy.signal import savgol_filter
 from scipy.interpolate import interp1d ##Nov 1st, 2022
 import tensorflow as tf
+import time
 
 IMG_WIDTH_SEG = 224
 IMG_WIDTH_ROI = 256
@@ -14,14 +15,17 @@ IMG_WIDTH_EF = 128
 IMG_WIDTH_CLS = 224
 IMG_WIDTH_SPK = 224  ##Nov 1st, 2022
 
-
+start_time = time.time()
 ROImodel = tf.keras.models.load_model("./Models/model-Echo-ROI-AW-256-256-MobileNetV2_Jan_2022.h5", compile = True)
-print('ROI model loaded')
+print('\nROI model loaded in : {0:.1f} seconds'.format(time.time() - start_time))
 
+start_time = time.time()
 clsmodel = tf.keras.models.load_model('./Models/model-comprehensive-view-classification-EfficientNetB4-one_Dense-24-classes-add-weights-add-vertical-flip.h5', compile = True)
 pd_cls_model = tf.keras.models.load_model('./Models/model-binary-pediatric-classification-EfficientNetB0.h5', compile = True)
 doppler_clsmodel = tf.keras.models.load_model('./Models/model-binary-doppler-view-classification-EfficientNetB0.h5', compile = True)
-print('Classification model loaded')
+print('Classification model loaded in {0:.1f} seconds'.format(time.time() - start_time))
+
+start_time = time.time()
 segmodel = tf.keras.models.load_model('./Models/model-A2C-A4C-224-224-Unetpp-with-Augmentation-inceptionresnetv2-March-2022-12-0.0897.h5', compile = False)
 segmodel.compile(optimizer="Adam", 
                  loss=bce_dice_loss,     
@@ -30,12 +34,21 @@ segmodel_A2C = tf.keras.models.load_model('./Models/model-A2C-new-224-224-Unetpp
 segmodel_A2C.compile(optimizer="Adam", 
                  loss=bce_dice_loss,
                  metrics=["binary_crossentropy", dice_coef])
-print('Segmentation model loaded')
+print('Segmentation model loaded in {0:.1f} seconds'.format(time.time() - start_time))
+
+start_time = time.time()
 EF_pred_model = tf.keras.models.load_model("./Models/model-Stanford-EF-EDArea-ESArea-regression-128-128-EfficientNetB6-Multi_loss_0.h5", compile = True)
-print('EF Prediction model loaded')
+print('EF prediction model loaded in {0:.1f} seconds'.format(time.time() - start_time))
+
+start_time = time.time()
 GLS_pred_model = tf.keras.models.load_model('./Models/model-Stanford-GLS-regression-128-128-InceptionResNetV2_MSE_one_dense-Esad.h5', compile = True)
+print('GLS prediction model loaded in {0:.1f} seconds'.format(time.time() - start_time))
+
+start_time = time.time()
 speckle_init_model = tf.keras.models.load_model('./Models/model-Echo-speckle-init-points-EfficientNetB4.h5', compile = True) ##Nov 1st, 2022
-print('All Models are successfully loaded')
+print('Speckle  model loaded in {0:.1f} seconds'.format(time.time() - start_time))
+
+print('\t ..... All Models are successfully loaded \n')
 pi = 3.1415926535
 
 def get_init_from_model(data):   ##Nov 1st, 2022
